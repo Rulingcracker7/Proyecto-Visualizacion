@@ -68,12 +68,25 @@
     </div>
   </section>
 
-  <footer class="bg-dark text-white py-4 mt-5">
-    <div class="container text-center">
-      <small>&copy; 2025 Onichan Store. Todos los derechos reservados.</small>
-    </div>
-  </footer>
-
-  <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+      <form method="post" action="{% url 'appOnichan:contact' %}">
+        {% csrf_token %}
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Nombre</label>
+            <input name="name" class="form-control" placeholder="Tu nombre">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input name="email" class="form-control" placeholder="tucorreo@ejemplo.com">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Mensaje</label>
+            <textarea name="message" class="form-control" rows="3" placeholder="Escr\u00edbenos\u2026"></textarea>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-primary" type="submit">Enviar</button>
+          </div>
+        </div>
+      </form>
 
 

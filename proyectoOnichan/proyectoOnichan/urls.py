@@ -19,6 +19,7 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('appOnichan.urls')),
+    # Include appOnichan with namespace so templates can use 'appOnichan:NAME'
+    path('', include(('appOnichan.urls', 'appOnichan'), namespace='appOnichan')),
 
 ]
