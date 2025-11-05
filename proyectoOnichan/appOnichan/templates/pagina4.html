@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Admin{% endblock %}
+
+{% block content %}
+<main class="container-fluid py-4">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h3 class="m-0">Dashboard</h3>
+    <div>
+      <button class="btn btn-ghost">Exportar</button>
+      <a href="{% url 'appOnichan:orders' %}" class="btn btn-primary">Ir a Pedidos</a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-4">
+      <div class="card card-dark p-3">
+        <div class="card-header">Pedidos hoy</div>
+        <div class="card-body">
+          <div class="h1" id="kpiToday">{{ kpi_today }}</div>
+          <div class="small text-muted">Pedidos confirmados en las últimas 24h</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="card card-dark p-3">
+        <div class="card-header">Pendientes</div>
+        <div class="card-body">
+          <div class="h1" id="kpiPending">{{ kpi_pending }}</div>
+          <div class="small text-muted">Pedidos pendientes de despacho</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="card card-dark p-3">
+        <div class="card-header">Ingresos (7d)</div>
+        <div class="card-body">
+          <div class="h1" id="kpiRevenue">${{ kpi_revenue_7d }}</div>
+          <div class="small text-muted">Total estimado en la última semana</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-6">
+      <div class="card card-dark p-3">
+        <div class="card-header">Pedidos por día (7d)</div>
+        <div class="card-body">
+          <div class="chart-wrap" style="height:220px;">
+            <canvas id="chartOrders7d" style="max-height:200px;"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card card-dark p-3">
+        <div class="card-header">Top productos</div>
+        <div class="card-body">
+          <div class="chart-wrap" style="height:220px;">
+            <canvas id="chartProductsTop" style="max-height:200px;"></canvas>
+          </div>
+          <ul id="topList" class="list-unstyled small mt-3">
+            {% for p in products_top %}
+              <li>{{ forloop.counter }}. {{ p.label }} <span class="float-end">{{ p.value }}</span></li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-3">
+    <div class="col-12">
+      <div class="card card-dark p-3">
+        <div class="card-header">Ingresos por categoría (ejemplo)</div>
+        <div class="card-body">
+          <div class="chart-wrap" style="height:200px;">
+            <canvas id="chartRevenueCats" style="max-height:180px;"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nuevo gráfico: Canales de venta -->
+  <div class="row g-3 mt-3">
+    <div class="col-12 col-md-6">
+      <div class="card card-dark p-3">
+        <div class="card-header">Canales de venta</div>
+        <div class="card-body">
+          <div class="chart-wrap" style="height:200px; max-width:360px;">
+            <canvas id="chartChannels" style="max-height:180px;"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+// Datos de ejemplo desde el contexto que envía la view (JSON seguro)
+const ordersByDay = JSON.parse('{{ orders_by_day_json|escapejs }}'); // array de 7 números
+const productsTop = JSON.parse('{{ products_top_json|escapejs }}'); // array de objetos {label, value}
+
+// Extraer labels y valores para charts
+const labels7d = ['-6d','-5d','-4d','-3d','-2d','-1d','Hoy'];
+const data7d = ordersByDay;
+
+const prodLabels = productsTop.map(p => p.label);
+const prodValues = productsTop.map(p => p.value);
+
+// Colors helper
+function colors(n){
+  const palette = ['#2C6FB7','#6FB1E6','#2ECC71','#F1C40F','#E74C3C','#9B59B6','#34495E'];
+  return Array.from({length:n}).map((_,i)=>palette[i%palette.length]);
+}
+
+// Orders line chart
+const ctx1 = document.getElementById('chartOrders7d').getContext('2d');
+const chartOrders = new Chart(ctx1, {
+  type: 'line',
+  data: {
+    labels: labels7d,
+    datasets: [{
+      label: 'Pedidos',
+      data: data7d,
+      borderColor: '#2C6FB7',
+      backgroundColor: 'rgba(44,111,183,0.12)',
+      tension: 0.35,
+      fill: true,
+    }]
+  },
+  options: { responsive: true, maintainAspectRatio: false }
+});
+
+// Click handler for Orders chart -> open dashboard detail for that label
+document.getElementById('chartOrders7d').onclick = function(evt){
+  const elems = chartOrders.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
+  if(elems.length){
+    const idx = elems[0].index;
+    const label = chartOrders.data.labels[idx];
+    const path = `/dashboard/detail/orders/${encodeURIComponent(label)}/`;
+    window.location.href = window.location.origin + path;
+  }
+};
+
+// Products pie chart with click handler: al hacer click recarga con ?product=label
+const ctx2 = document.getElementById('chartProductsTop').getContext('2d');
+const pie = new Chart(ctx2, {
+  type: 'pie',
+  data: {
+    labels: prodLabels,
+    datasets: [{ data: prodValues, backgroundColor: colors(prodValues.length) }]
+  },
+  options: { responsive: true, maintainAspectRatio: false }
+});
+
+document.getElementById('chartProductsTop').onclick = function(evt){
+  const points = pie.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+  if(points.length){
+    const idx = points[0].index;
+    const label = pie.data.labels[idx];
+    // Redirect to the dedicated dashboard detail subview for products
+    const path = `/dashboard/detail/products/${encodeURIComponent(label)}/`;
+    window.location.href = window.location.origin + path;
+  }
+};
+
+// Revenue by category (sample random data)
+const ctx3 = document.getElementById('chartRevenueCats').getContext('2d');
+const chartRevenue = new Chart(ctx3, {
+  type: 'bar',
+  data: {
+    labels: ['Electrónica','Ropa','Juguetes','Hogar','Otros'],
+    datasets: [{ label: 'Ingresos', data: [45000, 32000, 18000, 24000, 9000], backgroundColor: colors(5) }]
+  },
+  options: { responsive: true, maintainAspectRatio: false }
+});
+
+// Attach click handler to revenue bars
+document.getElementById('chartRevenueCats').onclick = function(evt){
+  const elems = chartRevenue.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
+  if(elems.length){
+    const idx = elems[0].index;
+    const label = chartRevenue.data.labels[idx];
+    const path = `/dashboard/detail/revenue/${encodeURIComponent(label)}/`;
+    window.location.href = window.location.origin + path;
+  }
+};
+
+// Channels chart (nuevo)
+const channels = JSON.parse('{{ channels_json|escapejs }}');
+const chLabels = channels.map(c=>c.label);
+const chValues = channels.map(c=>c.value);
+const ctx4 = document.getElementById('chartChannels').getContext('2d');
+const chartChannels = new Chart(ctx4, {
+  type: 'doughnut',
+  data: { labels: chLabels, datasets: [{ data: chValues, backgroundColor: colors(chValues.length) }] },
+  options: { responsive:true, maintainAspectRatio:false }
+});
+
+document.getElementById('chartChannels').onclick = function(evt){
+  const elems = chartChannels.getElementsAtEventForMode(evt,'nearest',{intersect:true}, true);
+  if(elems.length){
+    const idx = elems[0].index;
+    const label = chartChannels.data.labels[idx];
+    const path = `/dashboard/detail/channels/${encodeURIComponent(label)}/`;
+    window.location.href = window.location.origin + path;
+  }
+};
+
+// Si el servidor envió datos de detalle para un producto seleccionado, mostrar un chart adicional
+{% if product_detail_json %}
+const productDetail = JSON.parse('{{ product_detail_json|escapejs }}');
+// Crear un modal o un chart en línea: añadiremos un elemento al DOM y renderizamos un chart pequeño
+const detailContainer = document.createElement('div');
+detailContainer.className = 'card card-dark p-3 mt-3';
+detailContainer.innerHTML = `<div class="card-header">Detalle: ${productDetail.label}</div><div class="card-body"><canvas id="chartProductDetail" style="max-height:220px;"></canvas></div>`;
+document.querySelector('main').prepend(detailContainer);
+const ctxd = document.getElementById('chartProductDetail').getContext('2d');
+new Chart(ctxd, {
+  type: 'line',
+  data: { labels: productDetail.months, datasets: [{ label: productDetail.label, data: productDetail.values, borderColor: '#2C6FB7', backgroundColor: 'rgba(44,111,183,0.08)', fill:true }] },
+  options: { responsive:true, maintainAspectRatio:false }
+});
+{% endif %}
+</script>
+{% endblock %}

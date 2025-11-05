@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle - {{ detail.label }}{% endblock %}
+
+{% block content %}
+<main class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Detalle: {{ detail.label }}</h3>
+    <div>
+      <a href="{% url 'appOnichan:dashboard' %}" class="btn btn-ghost">Volver al dashboard</a>
+      <a href="{% url 'appOnichan:orders' %}" class="btn btn-primary">Ver Pedidos</a>
+    </div>
+  </div>
+
+  <div class="card card-dark p-3">
+    <div class="card-header">Detalle</div>
+    <div class="card-body">
+      <div style="max-width:900px;height:420px;">
+        <canvas id="detailChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+const detail = JSON.parse('{{ detail_json|escapejs }}');
+const ctx = document.getElementById('detailChart').getContext('2d');
+// Detect data shape and render accordingly
+let labels = detail.months || detail.labels || [];
+let data = detail.values || [];
+let type = labels.length > 6 ? 'line' : 'bar';
+new Chart(ctx, {
+  type: type,
+  data: { labels: labels, datasets: [{ label: detail.label, data: data, borderColor: '#2C6FB7', backgroundColor: 'rgba(44,111,183,0.12)', fill:true }] },
+  options: { responsive:true, maintainAspectRatio:false }
+});
+</script>
+{% endblock %}
